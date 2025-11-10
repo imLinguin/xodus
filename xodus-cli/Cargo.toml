@@ -1,0 +1,8 @@
+[package]
+name = "xodus-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+xodus = { path = "../xodus" }
+tokio = { version = "1", features = ["full"] }
