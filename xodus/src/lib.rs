@@ -1,5 +1,4 @@
-mod auth;
 mod client;
+pub mod auth;
 
-pub use auth::*;
 pub use xal;

@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 xodus = { path = "../xodus" }
 tokio = { version = "1", features = ["full"] }
+tao = "0.34.5"
+wry = "0.53.5"
+async-trait = "0.1.89"
