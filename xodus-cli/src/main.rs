@@ -1,38 +1,77 @@
 use crate::webview::WebviewCallbackHandler;
-
+use clap::{Parser, Subcommand};
+mod commands;
 mod webview;
+
+use xodus::reqwest;
+
+use xodus::xal::TokenStore;
+use xodus::xal::client_params::CLIENT_WINDOWS;
+use xodus::xal::oauth2::TokenResponse;
+
+#[derive(Subcommand)]
+enum SubCommand {
+    Download {
+        product: String,
+        #[arg(short, long)]
+        market: Option<String>,
+    },
+    License {
+        content_id: String,
+    },
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct CliArgs {
+    #[command(subcommand)]
+    command: SubCommand,
+}
 
 #[tokio::main]
 async fn main() {
-    println!("Logging in...");
-    let mut ts = match xodus::xal::Flows::try_refresh_live_tokens_from_file("tokens.json").await {
-        Ok((mut authenticator, ts)) => {
-            xodus::auth::refresh_tokens(&mut authenticator, ts.live_token)
-                .await
-                .expect("Failed to refresh tokens")
+    env_logger::init_from_env("XODUS_LOG");
+    let client = reqwest::ClientBuilder::new()
+        .user_agent(CLIENT_WINDOWS().user_agent)
+        .build()
+        .unwrap();
+    let args = CliArgs::parse();
+    log::info!("Logging in...");
+
+    let mut ts = match TokenStore::load_from_file("tokens.json") {
+        Ok(mut ts) => {
+            if ts
+                .updated
+                .zip(ts.live_token.expires_in())
+                .is_none_or(|(up, exp)| up + exp < chrono::Utc::now())
+            {
+                match xodus::xal::Flows::try_refresh_live_tokens_from_tokenstore(&mut ts).await {
+                    Ok(mut authenticator) => {
+                        xodus::auth::refresh_tokens(&mut authenticator, ts.live_token)
+                            .await
+                            .expect("Failed to refresh tokens")
+                    }
+                    Err(_) => xodus::auth::start_new_session(WebviewCallbackHandler)
+                        .await
+                        .expect("Failed to login"),
+                }
+            } else {
+                ts
+            }
         }
-        Err(err) => {
-            eprintln!("{err:?}");
-            xodus::auth::start_new_session(WebviewCallbackHandler)
-                .await
-                .expect("Failed to login")
-        }
+        Err(_) => xodus::auth::start_new_session(WebviewCallbackHandler)
+            .await
+            .expect("Failed to login"),
     };
     ts.update_timestamp();
     ts.save_to_file("tokens.json").expect("Failed to save");
 
-    let gamertag = ts
-        .authorization_token
-        .as_ref()
-        .unwrap()
-        .display_claims
-        .as_ref()
-        .unwrap()
-        .xui
-        .first()
-        .unwrap()
-        .get("gtg")
-        .unwrap();
-
-    println!("Logged in: {gamertag}")
+    match args.command {
+        SubCommand::Download { product, market } => {
+            commands::download::run(&client, &ts, product, market).await
+        }
+        SubCommand::License { content_id: _ } => {
+            unimplemented!("Downloading licenses is not supported yet")
+        }
+    }
 }

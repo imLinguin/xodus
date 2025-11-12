@@ -9,3 +9,9 @@ tokio = { version = "1", features = ["full"] }
 tao = "0.34.5"
 wry = "0.53.5"
 async-trait = "0.1.89"
+clap = { version = "4.5.51", features = ["derive"] }
+log = "0.4.28"
+env_logger = "0.11.8"
+serde_json = "1.0.145"
+chrono = "0.4.42"
+inquire = "0.9.1"
