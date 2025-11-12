@@ -15,6 +15,8 @@ enum SubCommand {
         product: String,
         #[arg(short, long)]
         market: Option<String>,
+        #[arg(long, default_value_t = false)]
+        dry_run: bool
     },
     License {
         content_id: String,
@@ -67,8 +69,8 @@ async fn main() {
     ts.save_to_file("tokens.json").expect("Failed to save");
 
     match args.command {
-        SubCommand::Download { product, market } => {
-            commands::download::run(&client, &ts, product, market).await
+        SubCommand::Download { product, market , dry_run} => {
+            commands::download::run(&client, &ts, product, market, dry_run).await
         }
         SubCommand::License { content_id: _ } => {
             unimplemented!("Downloading licenses is not supported yet")

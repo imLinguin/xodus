@@ -1,14 +1,12 @@
 use inquire::{MultiSelect, validator::Validation};
+use futures_util::StreamExt;
+use tokio::io::AsyncWriteExt;
 use xodus::{
-    XBOX_LIVE_PACKAGES_PC,
-    auth::get_xsts_token,
-    displaycatalog::find_products_by_id,
-    models::packagespc::{PackageFile, PackageResponse},
-    xal::{
+    XBOX_LIVE_PACKAGES_PC, auth::get_xsts_token, displaycatalog::find_products_by_id, models::packagespc::{PackageFile, PackageResponse}, xal::{
         RequestSigner, TokenStore,
         cvlib::CorrelationVector,
         extensions::{CorrelationVectorReqwestBuilder, SigningReqwestBuilder},
-    },
+    }
 };
 
 pub async fn run(
@@ -16,6 +14,7 @@ pub async fn run(
     ts: &TokenStore,
     product: String,
     market: Option<String>,
+    dry_run: bool
 ) {
     // Create new instances of Correlation vector and request signer
     let mut cv = CorrelationVector::new();
@@ -107,9 +106,28 @@ pub async fn run(
         log::error!("Selection failed");
         return;
     };
-    println!("");
+    println!();
     for file in files {
-        println!("{}{}", file.cdn_root_paths.first().unwrap(), file.relative_url);        
+        let url = format!("{}{}", file.cdn_root_paths.first().unwrap(), file.relative_url);
+        if dry_run {
+            println!("{}", url);
+            continue;
+        }
+        let file_size = file.file_size as f64;
+        let total_mib = file_size / 1024_f64 / 1024_f64;
+        let mut downloaded_size = 0_f64;
+        let res = client.get(url).send().await.expect("Failed to request the download");
+        let mut file = tokio::fs::OpenOptions::new().create(true).write(true).truncate(true).open(file.file_name).await.unwrap();
+        let mut stream = res.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chk = chunk.expect("Failed to stream file");
+            downloaded_size += chk.len() as f64;
+            file.write(&chk).await.expect("Failed to write to file");
+            let percent = downloaded_size / file_size * 100_f64;
+            let downloaded_mib = downloaded_size / 1024_f64 / 1024_f64;
+            print!("{percent:02.02}% - {downloaded_mib:05.0}MiB/{total_mib:05.0}MiB\r")
+        }
+        println!();
     }
 
 }
