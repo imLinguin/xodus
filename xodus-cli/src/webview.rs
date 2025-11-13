@@ -3,10 +3,10 @@ use tao::{
     dpi::{LogicalSize, Size},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
-    platform::{run_return::EventLoopExtRunReturn, unix::WindowExtUnix},
+    platform::{run_return::EventLoopExtRunReturn},
     window::WindowBuilder,
 };
-use wry::{PageLoadEvent, WebViewBuilder, WebViewBuilderExtUnix};
+use wry::{PageLoadEvent, WebViewBuilder};
 use xodus::xal::AuthPromptCallback;
 
 enum CustomEvent {
@@ -40,8 +40,15 @@ impl AuthPromptCallback for WebviewCallbackHandler {
                     proxy.send_event(CustomEvent::Finish(url)).ok();
                 }
             });
-
-        let _webview = builder.build_gtk(window.default_vbox().unwrap()).unwrap();
+        
+        #[cfg(target_os = "linux")]
+        {
+            use tao::platform::unix::WindowExtUnix;
+            use wry::WebViewBuilderExtUnix;
+            let _webview = builder.build_gtk(window.default_vbox().unwrap()).unwrap();
+        }
+        #[cfg(not(target_os = "linux"))]
+        let _webview = builder.build(&window).unwrap();
 
         event_loop.run_return(|event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
