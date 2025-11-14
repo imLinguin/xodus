@@ -7,4 +7,3 @@ pub mod licensing;
 pub const XBOX_LIVE_PACKAGES_PC: &str = "https://packagespc.xboxlive.com";
 
 pub use xal;
-pub use reqwest;

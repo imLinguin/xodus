@@ -10,7 +10,7 @@ use xodus::{
 };
 
 pub async fn run(
-    client: &xodus::reqwest::Client,
+    client: &reqwest::Client,
     ts: &TokenStore,
     product: String,
     market: Option<String>,

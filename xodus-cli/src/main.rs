@@ -3,8 +3,6 @@ use clap::{Parser, Subcommand};
 mod commands;
 mod webview;
 
-use xodus::reqwest;
-
 use xodus::xal::TokenStore;
 use xodus::xal::client_params::CLIENT_WINDOWS;
 use xodus::xal::oauth2::TokenResponse;

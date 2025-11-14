@@ -4410,6 +4410,7 @@ dependencies = [
  "futures-util",
  "inquire",
  "log",
+ "reqwest",
  "serde_json",
  "tao",
  "tokio",
