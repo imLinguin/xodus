@@ -2,7 +2,7 @@ use inquire::{MultiSelect, validator::Validation};
 use futures_util::StreamExt;
 use tokio::io::AsyncWriteExt;
 use xodus::{
-    XBOX_LIVE_PACKAGES_PC, auth::get_xsts_token, displaycatalog::find_products_by_id, models::packagespc::{PackageFile, PackageResponse}, xal::{
+    XBOX_LIVE_PACKAGES_PC, auth::get_xsts_token, api::displaycatalog::find_products_by_id, models::packagespc::{PackageFile, PackageResponse}, xal::{
         RequestSigner, TokenStore,
         cvlib::CorrelationVector,
         extensions::{CorrelationVectorReqwestBuilder, SigningReqwestBuilder},
@@ -74,6 +74,7 @@ pub async fn run(
         .get(format!(
             "{XBOX_LIVE_PACKAGES_PC}/GetBasePackage/{content_id}"
         ))
+        .header("x-xbl-contract-version", "3")
         .header("Authorization", xsts_token.authorization_header_value())
         .add_cv(&mut cv)
         .unwrap()

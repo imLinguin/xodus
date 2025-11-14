@@ -16,10 +16,12 @@ enum SubCommand {
         #[arg(short, long)]
         market: Option<String>,
         #[arg(long, default_value_t = false)]
-        dry_run: bool
+        dry_run: bool,
     },
     License {
         content_id: String,
+        #[arg(short, long)]
+        market: Option<String>,
     },
 }
 
@@ -69,11 +71,26 @@ async fn main() {
     ts.save_to_file("tokens.json").expect("Failed to save");
 
     match args.command {
-        SubCommand::Download { product, market , dry_run} => {
-            commands::download::run(&client, &ts, product, market, dry_run).await
-        }
-        SubCommand::License { content_id: _ } => {
-            unimplemented!("Downloading licenses is not supported yet")
+        SubCommand::Download {
+            product,
+            market,
+            dry_run,
+        } => commands::download::run(&client, &ts, product, market, dry_run).await,
+        SubCommand::License {
+            content_id: _,
+            market: _,
+        } => {
+            unimplemented!("This codepath doesnt work yet!");
+            // let res = licensing::content::get_license_content(
+            //     &client,
+            //     &ts,
+            //     content_id,
+            //     market.unwrap_or("US".into()),
+            // )
+            // .await
+            // .expect("Failed to get license");
+
+            // println!("{res}");
         }
     }
 }
