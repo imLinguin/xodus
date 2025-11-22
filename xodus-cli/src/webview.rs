@@ -42,11 +42,11 @@ impl AuthPromptCallback for WebviewCallbackHandler {
             });
         
         #[cfg(target_os = "linux")]
-        {
+        let _webview = {
             use tao::platform::unix::WindowExtUnix;
             use wry::WebViewBuilderExtUnix;
-            let _webview = builder.build_gtk(window.default_vbox().unwrap()).unwrap();
-        }
+            builder.build_gtk(window.default_vbox().unwrap()).unwrap()
+        };
         #[cfg(not(target_os = "linux"))]
         let _webview = builder.build(&window).unwrap();
 
