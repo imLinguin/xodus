@@ -9,10 +9,10 @@ title: OTBE device handshake
 sequenceDiagram
     participant A as User Machine
     participant B as login.live.com
-    A->>B:/ppsecure/deviceaddcredential.srf
-    B->>A:Device SPLicenseBlock
-    A->>B:/RST2.srf - http://Passport.NET/tb
-    B->>A:Device Ticket
+    A->>+B:/ppsecure/deviceaddcredential.srf
+    B->>-A:Device SPLicenseBlock
+    A->>+B:/RST2.srf - http://Passport.NET/tb
+    B->>-A:Device Ticket
 ```
 
 ## deviceaddcredential.srf
