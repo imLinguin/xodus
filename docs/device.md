@@ -64,6 +64,7 @@ All blobs are base64 encoded
 - 4102 - SMBIOS UUID - assigned by OEM
 - 8196 - CLEP blob #1 - possibly V2 request data
 - 8197 - CLEP blob #2 - possibly V4 request data
+- 8195 - ??? - 48 byte sequence
 - 4144 - ??? - 32 byte blob - SHA256 of something ??
 - 4145 - SMBIOS chassis type
 - 4160 - ?? - can be empty with `error="-2147024894"`
