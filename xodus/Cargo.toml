@@ -14,3 +14,4 @@ async-trait = "0.1.89"
 log = "0.4.28"
 chrono = { workspace = true }
 base64 = "0.22.1"
+rand = "0.10.0"
