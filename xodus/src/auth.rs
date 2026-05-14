@@ -1,5 +1,5 @@
 use xal::{
-    AuthPromptCallback, Flows, TokenStore, XalAppParameters, XalAuthenticator,
+    AuthPromptCallback, Constants, Flows, TokenStore, XalAppParameters, XalAuthenticator,
     client_params::CLIENT_WINDOWS,
     oauth2::{
         EmptyExtraTokenFields, RedirectUrl, Scope, StandardTokenResponse, basic::BasicTokenType,
@@ -29,7 +29,7 @@ pub async fn start_new_session(
     let app_params = get_app_params();
     let mut authenticator = XalAuthenticator::new(app_params, CLIENT_WINDOWS(), "RETAIL".into());
     let ts = Flows::ms_authorization_flow(&mut authenticator, cb, true).await?;
-    let ts = Flows::xbox_live_sisu_authorization_flow(&mut authenticator, ts.live_token).await?;
+    let ts = Flows::xbox_live_authorization_traditional_flow(&mut authenticator, ts.live_token, Constants::RELYING_PARTY_XBOXLIVE.to_string(), xal::AccessTokenPrefix::None, false).await?;
     Ok(ts)
 }
 

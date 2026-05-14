@@ -13,7 +13,7 @@ pub struct LicenseContentRequest {
     pub market: String,
     pub need_key: bool,
     pub key_only: bool,
-    pub users: HashMap<String, Vec<LicenseUserIdentity>>
+    pub users: HashMap<String, Vec<LicenseUserIdentity>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -39,5 +39,5 @@ impl Default for DeviceContext {
 pub struct LicenseUserIdentity {
     pub identity_type: String,
     pub identity_value: String,
-    pub local_ticket_reference: String
+    pub local_ticket_reference: String,
 }

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -128,14 +130,12 @@ pub struct EligibilityProperties {
     pub affirmations: Vec<Affirmation>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Remediations {
     pub remediation_id: String,
     pub description: String,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

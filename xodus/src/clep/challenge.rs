@@ -13,8 +13,8 @@ pub fn get_license_challange(smbios: [u8; 256], disk_serial: [u8; 64]) -> ([u8; 
     clepv4.debuger_not_present = 1;
     clepv4.smbios = smbios;
     clepv4.disk_serial = disk_serial;
-    
-    let mut obfuscatedv2 = unsafe { transmute( clepv2) };
+
+    let mut obfuscatedv2 = unsafe { transmute(clepv2) };
     let mut obfuscatedv4 = unsafe { transmute(clepv4) };
 
     clep_obfuscate(&mut obfuscatedv2);
@@ -44,8 +44,7 @@ pub fn clep_obfuscate(buffer: &mut [u8; 2048]) {
         .wrapping_mul((k0 ^ MAGIC_HI).rotate_right(22))
         .wrapping_sub(k0.rotate_right(8));
     let k2 = k0 ^ MAGIC_04.wrapping_mul(k1.rotate_right(15) ^ MAGIC_01);
-    let k3 = k1
-        ^ (k2 >> 9).wrapping_add(MAGIC_02.wrapping_mul((k2 ^ MAGIC_03).rotate_left(3)));
+    let k3 = k1 ^ (k2 >> 9).wrapping_add(MAGIC_02.wrapping_mul((k2 ^ MAGIC_03).rotate_left(3)));
     let k4 = k2 ^ k3.rotate_right(28) ^ MAGIC_03.wrapping_mul((k3 ^ MAGIC_HI).rotate_right(9));
     let k5 = k3
         ^ k4.rotate_right(12)
@@ -96,15 +95,12 @@ pub fn clep_obfuscate(buffer: &mut [u8; 2048]) {
                 .wrapping_mul((r1 ^ MAGIC_01).rotate_left(2))
                 .wrapping_sub(r1.rotate_right(18));
         let r3 = r1 ^ r2.wrapping_sub(MAGIC_02).wrapping_sub(MAGIC_LO);
-        let r4 =
-            r2 ^ r3.rotate_right(11) ^ MAGIC_01.wrapping_mul((r3 ^ MAGIC_02).rotate_left(2));
+        let r4 = r2 ^ r3.rotate_right(11) ^ MAGIC_01.wrapping_mul((r3 ^ MAGIC_02).rotate_left(2));
         let r5 = r3
             ^ r4.rotate_right(12)
                 .wrapping_add(MAGIC_04.wrapping_mul(r4.wrapping_sub(MAGIC_HI).rotate_right(14)));
-        let r6 =
-            r4 ^ r5.rotate_right(28) ^ MAGIC_03.wrapping_mul((r5 ^ MAGIC_HI).rotate_right(9));
-        let r7 = r5
-            ^ (r6 >> 9).wrapping_add(MAGIC_02.wrapping_mul((r6 ^ MAGIC_03).rotate_left(3)));
+        let r6 = r4 ^ r5.rotate_right(28) ^ MAGIC_03.wrapping_mul((r5 ^ MAGIC_HI).rotate_right(9));
+        let r7 = r5 ^ (r6 >> 9).wrapping_add(MAGIC_02.wrapping_mul((r6 ^ MAGIC_03).rotate_left(3)));
         let r8 = r6 ^ MAGIC_04.wrapping_mul(r7.rotate_right(15) ^ MAGIC_01);
         let r9 = r7
             ^ MAGIC_04
@@ -128,7 +124,6 @@ pub fn clep_obfuscate(buffer: &mut [u8; 2048]) {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,5 +138,4 @@ mod tests {
 
         get_license_challange(smbios, disk_serial);
     }
-
 }

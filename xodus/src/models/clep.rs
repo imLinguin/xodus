@@ -8,7 +8,7 @@ pub struct ClepV2 {
     pub unused_tpm: [u8; 931],
     pub is_windows_to_go: bool,
     pub enscrowed_device_key: [u8; 148],
-    pub reserved: [u8; 639] 
+    pub reserved: [u8; 639],
 }
 
 #[repr(C, packed)]
@@ -25,6 +25,5 @@ pub struct ClepV4 {
     pub debugger_enabled: u32,
     pub debuger_not_present: u32,
     pub enscrowed_device_key: [u8; 148],
-    pub reserved: [u8; 665] 
+    pub reserved: [u8; 665],
 }
-

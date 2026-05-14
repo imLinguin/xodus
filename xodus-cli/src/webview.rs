@@ -3,7 +3,7 @@ use tao::{
     dpi::{LogicalSize, Size},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
-    platform::{run_return::EventLoopExtRunReturn},
+    platform::run_return::EventLoopExtRunReturn,
     window::WindowBuilder,
 };
 use wry::{PageLoadEvent, WebViewBuilder};
@@ -40,7 +40,7 @@ impl AuthPromptCallback for WebviewCallbackHandler {
                     proxy.send_event(CustomEvent::Finish(url)).ok();
                 }
             });
-        
+
         #[cfg(target_os = "linux")]
         let _webview = {
             use tao::platform::unix::WindowExtUnix;
