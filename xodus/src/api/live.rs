@@ -1,9 +1,10 @@
 use crate::models::devicecredential::{DeviceAddRequest, DeviceAddResponse};
+use crate::models::soap::{self, AppliesTo, EndpointReference};
 
 pub async fn login_device_credential(
     client: &reqwest::Client,
     data: DeviceAddRequest,
-) -> reqwest::Result<()> {
+) -> reqwest::Result<DeviceAddResponse> {
     let data = quick_xml::se::to_string(&data).unwrap();
 
     let response = client
@@ -16,14 +17,44 @@ pub async fn login_device_credential(
         .body(data)
         .send()
         .await?;
+    let text = response.text().await?;
+    let resp: DeviceAddResponse = quick_xml::de::from_str(&text).expect("Failed to de xml");
+    Ok(resp)
+}
+
+pub async fn authenticate_device(client: &reqwest::Client, username: String, password: String) -> reqwest::Result<()> {
+    let header = soap::Header::new(username, password, chrono::Utc::now().timestamp().to_string());
+    let body = soap::Body {
+        request_security_token: soap::RequestSecurityToken {
+            id: "RST0".to_string(),
+            request_type: "http://schemas.xmlsoap.org/ws/2005/02/trust/Issue".to_string(),
+            applies_to: AppliesTo {
+                endpoint_reference: EndpointReference {
+                    address: "http://Passport.NET/tb".to_string(),
+                },
+            },
+        },
+    };
+    let envelope = soap::Envelope::new(header, body);
+    let xml = quick_xml::se::to_string(&envelope).unwrap();
+    let header = String::from(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
+    let xml = format!("{header}\n{xml}");
+    let response = client
+        .post(format!(
+            "https://login.live.com/RST2.srf"
+        ))
+        .header("User-Agent", "MSAWindows/55 (OS 10.0.26100.0.0 ge_release; IDK 10.0.26100.5074 ge_release; Cfg 16.000.29325.00; Test 0)")
+        .header("Content-Type", "application/soap+xml")
+        .header("Host", "login.live.com")
+        .body(xml)
+        .send()
+        .await?;
+    
+    println!("{response:?}");
 
     let text = response.text().await?;
-    println!("{text:#?}");
 
-    let resp: DeviceAddResponse = quick_xml::de::from_str(&text).expect("Failed to de xml");
-
-    println!("{resp:#?}");
+    println!("{text:?}");
 
     Ok(())
 }
-

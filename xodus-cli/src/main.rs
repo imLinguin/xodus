@@ -39,9 +39,9 @@ async fn main() {
         .connection_verbose(true)
         .build()
         .unwrap();
+
     let args = CliArgs::parse();
    
-
     match args.command {
         SubCommand::Download {
             product,
