@@ -40,14 +40,17 @@ async fn main() {
         .build()
         .unwrap();
 
+    let cb = crate::webview::WebviewCallbackHandler {};
+    cb.call().await;
+
     let args = CliArgs::parse();
-   
+
     match args.command {
         SubCommand::Download {
             product,
             market,
             dry_run,
-        } => (),//commands::download::run(&client, &ts, product, market, dry_run).await,
+        } => (), //commands::download::run(&client, &ts, product, market, dry_run).await,
         SubCommand::License { content_id, market } => {
             commands::license::run(&client).await;
         }

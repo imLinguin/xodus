@@ -7,8 +7,8 @@ edition = "2024"
 xodus = { path = "../xodus" }
 tokio = { workspace = true }
 reqwest = { workspace = true }
-tao = "0.34.5"
-wry = "0.53.5"
+tao = "0.35.2"
+wry = "0.55.1"
 async-trait = "0.1.89"
 clap = { version = "4.5.51", features = ["derive"] }
 log = "0.4.28"
@@ -17,3 +17,4 @@ serde_json = "1.0.145"
 chrono = { workspace = true }
 inquire = "0.9.1"
 futures-util = "0.3.31"
+uuid = "1.23.1"
