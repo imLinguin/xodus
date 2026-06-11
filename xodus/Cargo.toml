@@ -27,6 +27,7 @@ rsa = "0.9.10"
 cbc = "0.2.1"
 url = "2.5.8"
 aes-keywrap = "0.9.0"
+num_enum = "0.7.6"
 
 [dev-dependencies]
 rsa = "0.9.10"

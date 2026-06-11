@@ -28,6 +28,7 @@ use std::{
 
 use aes::cipher::{BlockCipherDecrypt, KeyInit};
 use base64::prelude::*;
+use num_enum::TryFromPrimitive;
 use zerocopy::transmute;
 
 // pub struct Block<'a> {
@@ -36,7 +37,7 @@ use zerocopy::transmute;
 //     pub data: &'a [u8],
 // }
 
-#[derive(Debug)]
+#[derive(Debug, TryFromPrimitive)]
 #[repr(u32)]
 pub enum BlockId {
     UnkBlock0 = 0x14,
@@ -66,41 +67,7 @@ pub enum BlockId {
     SignatureBlock = 0xcc,
 }
 
-impl TryFrom<u32> for BlockId {
-    type Error = u32;
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        match value {
-            0x14 => Ok(Self::UnkBlock0),
-            0x1f => Ok(Self::DeviceLicenseExpirationTime),
-            0xd3 => Ok(Self::PollingTime),
-            0x20 => Ok(Self::LicenseExpirationTime),
-            0x12d => Ok(Self::ClepSignState),
-            0xd2 => Ok(Self::LicenseDeviceId),
-            0xd1 => Ok(Self::UnkBlock1),
-            0xcb => Ok(Self::LicenseId),
-            0xd0 => Ok(Self::HardwareId),
-            0xcf => Ok(Self::UnkBlock2),
-            0x18 => Ok(Self::UplinkKeyId),
-            0x0 => Ok(Self::UnkBlock3),
-            0x12e => Ok(Self::UnkBlock4),
-            0xd5 => Ok(Self::UnkBlock5),
-            0xce => Ok(Self::PackageFullName),
-            0xc9 => Ok(Self::LicenseInformation),
-            0xca => Ok(Self::PackedContentKeys),
-            0x1 => Ok(Self::EncryptedDeviceKey),
-            0x2 => Ok(Self::DeviceLicenseDeviceId),
-            0xcd => Ok(Self::LicenseEntryIds),
-            0xd4 => Ok(Self::LicensePolicies),
-            0xdc => Ok(Self::KeyholderPublicSigningKey),
-            0xdd => Ok(Self::KeyholderPolicies),
-            0xde => Ok(Self::KeyholderKeyLicenseId),
-            0xcc => Ok(Self::SignatureBlock),
-            _ => Err(value),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SPLicense {
     pub license_id: uuid::Uuid,
     pub device_id: Vec<u8>,
@@ -119,6 +86,7 @@ pub struct SPLicense {
     pub polling_time: u32,
     pub license_expiration_time: u32,
 }
+
 impl From<&[u8]> for SPLicense {
     fn from(mut value: &[u8]) -> Self {
         let mut buffer = [0; 4];
@@ -127,30 +95,14 @@ impl From<&[u8]> for SPLicense {
         value.read_exact(&mut buffer).unwrap();
         let _offset = u32::from_le_bytes(buffer);
 
-        let mut license = Self {
-            license_id: uuid::Uuid::nil(),
-            device_id: Vec::new(),
-            keyholder_key_license_id: uuid::Uuid::nil(),
-            package_name: String::default(),
-            encrypted_device_key: Vec::new(),
-            content_keys: HashMap::new(),
-            clep_sign_state: Vec::new(),
-            polling_time: 0,
-            signature_origin: 0,
-            license_expiration_time: 0,
-            signature_block: Vec::new(),
-            entry_ids: Vec::new(),
-            keyholder_public_key: Vec::new(),
-            keyholder_policies: Vec::new(),
-            license_policies: Vec::new(),
-            hardware_id: Vec::new(),
-        };
+        let mut license = Self::default();
+
         while let Ok(size) = value.read(&mut buffer) {
             if size == 0 {
                 break;
             }
 
-            let block_id: Result<BlockId, u32> = u32::from_le_bytes(buffer).try_into();
+            let block_id: Result<BlockId, _> = u32::from_le_bytes(buffer).try_into();
             value.read_exact(&mut buffer).unwrap();
             let size = u32::from_le_bytes(buffer);
             match block_id {
