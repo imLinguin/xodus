@@ -47,6 +47,8 @@ pub async fn run(
         }
     }
 
+    println!("{product_details:?}");
+
     let Some(package) = found_package else {
         log::error!(
             "Windows.Desktop package not found, if you believe this is an error, please report it"
@@ -54,7 +56,7 @@ pub async fn run(
         return;
     };
 
-    let content_id = &package.content_id;
+    // let content_id = &package.content_id;
 
     let dev_token = device::get_device_token().unwrap();
     let Token::Legacy(dev_token) = dev_token else {

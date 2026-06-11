@@ -14,9 +14,15 @@ enum SubCommand {
         dry_run: bool,
     },
     License {
+        #[clap(help = "Content Id of a license")]
         content_id: String,
+        #[clap(help = "A path where to dump CIKs")]
+        ciks: String,
         #[arg(short, long)]
         market: Option<String>,
+    },
+    Extract {
+        path: String,
     },
     Login,
 }
@@ -47,12 +53,24 @@ async fn main() {
             market,
             dry_run,
         } => commands::download::run(&client, product, market, dry_run).await,
-        SubCommand::License { content_id, market } => {
-            commands::license::run(&client, content_id, market.unwrap_or("neutral".to_string()))
-                .await;
+        SubCommand::License {
+            content_id,
+            market,
+            ciks,
+        } => {
+            commands::license::run(
+                &client,
+                content_id,
+                market.unwrap_or("neutral".to_string()),
+                ciks,
+            )
+            .await;
         }
         SubCommand::Login => {
             commands::login::run(&client).await;
+        }
+        SubCommand::Extract { path } => {
+            commands::extract::run(path).await;
         }
     }
 
