@@ -102,8 +102,6 @@ pub async fn authenticate_xbox_user(
         .await?;
 
     let code = resp.status();
-    println!("code {code}");
-    // resp.text().await
     resp.json().await
 }
 
@@ -188,7 +186,6 @@ pub async fn request_xsts_token(
         .await?;
 
     let text = resp.text().await?;
-    println!("{text}");
 
     let parsed = serde_json::from_str::<XstsResponse>(&text).unwrap();
     Ok(parsed)
