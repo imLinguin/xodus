@@ -98,7 +98,7 @@ pub async fn run(
 
     let Ok(files) = MultiSelect::new("Select files to download", package.package_files)
         .with_validator(|input: &[inquire::list_option::ListOption<&PackageFile>]| {
-            if input.len() > 0 {
+            if !input.is_empty() {
                 Ok(Validation::Valid)
             } else {
                 Ok(Validation::Invalid(

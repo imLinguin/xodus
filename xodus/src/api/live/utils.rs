@@ -69,8 +69,7 @@ pub fn generate_shared_key(
     nonce: &[u8],
 ) -> [u8; 32] {
     let len: usize = 4 + key_usage.len() + 1 + nonce.len() + 4;
-    let mut shared_key_material: Vec<u8> = vec![];
-    shared_key_material.resize(len, 0);
+    let mut shared_key_material: Vec<u8> = vec![0; len];
 
     let mut offset = 0;
     offset += 4;
@@ -109,7 +108,7 @@ pub fn generate_shared_key(
         current_key_length += amount;
     }
 
-    return shared_key;
+    shared_key
 }
 
 pub fn generate_nonce() -> [u8; 32] {
@@ -143,7 +142,7 @@ pub fn decrypt_response(
 
         let enc_key = generate_shared_key(
             32,
-            &secret,
+            secret,
             "WS-SecureConversationWS-SecureConversation",
             &enc_nonce,
         );
@@ -156,7 +155,7 @@ pub fn decrypt_response(
         let mut block = [0; 8192];
 
         decryptor
-            .decrypt_padded_b2b::<Pkcs7>(&encrypted, &mut block)
+            .decrypt_padded_b2b::<Pkcs7>(encrypted, &mut block)
             .expect("Failed");
         let result = std::str::from_utf8(&block).unwrap();
         let new_pp = quick_xml::de::from_str::<soap::PP>(result).unwrap();
@@ -178,7 +177,7 @@ pub fn decrypt_response(
 
         let enc_key = generate_shared_key(
             32,
-            &secret,
+            secret,
             "WS-SecureConversationWS-SecureConversation",
             &enc_nonce,
         );
@@ -193,10 +192,10 @@ pub fn decrypt_response(
         let mut block = [0; 8192];
 
         decryptor
-            .decrypt_padded_b2b::<Pkcs7>(&encrypted, &mut block)
+            .decrypt_padded_b2b::<Pkcs7>(encrypted, &mut block)
             .expect("Failed");
         let result = std::str::from_utf8(&block).unwrap();
-        let security_token_res: soap::BodyContent = quick_xml::de::from_str(&result).unwrap();
+        let security_token_res: soap::BodyContent = quick_xml::de::from_str(result).unwrap();
 
         return Ok((security_token_res, pp));
     }

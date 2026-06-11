@@ -146,7 +146,7 @@ pub fn login_request(client_id: String, market: String) -> WebviewRequest {
         HeaderValue::from_static(r#"CloudExperienceHost"#),
     );
 
-    WebviewRequest::new("Xodus login", url, headers.try_into().unwrap())
+    WebviewRequest::new("Xodus login", url, headers)
 }
 
 pub fn finalize_request(url: String) -> WebviewRequest {
@@ -170,9 +170,7 @@ where
     };
 
     let mut commands = RuntimeCommands::new(state.next_session_id);
-    if let Err(err) = state.handler.bootstrap(&mut commands) {
-        return Err(err);
-    }
+    state.handler.bootstrap(&mut commands)?;
     state.next_session_id = commands.next_session_id;
     dispatch_actions(&proxy, commands.actions)?;
     event_loop.run_return(|event, target, control_flow| {
@@ -194,18 +192,17 @@ where
                 }
             }
             Event::UserEvent(CustomEvent::Finish(session_id)) => {
-                if state.active_session == Some(session_id) {
-                    if let Some(webview) = state.active_webview.as_ref() {
-                        let _ = webview
-                        .evaluate_script("window.ipc.postMessage(JSON.stringify(ServerData))");
-                    }
+                if state.active_session == Some(session_id)
+                    && let Some(webview) = state.active_webview.as_ref()
+                {
+                    let _ = webview.evaluate_script("window.ipc.postMessage(JSON.stringify(ServerData))");
                 }
             }
             Event::UserEvent(CustomEvent::HostGetContext(session_id, ctx)) => {
-                if state.active_session == Some(session_id) {
-                    if let Some(webview) = state.active_webview.as_ref() {
-                        let _ = webview.evaluate_script(&format!(r#"window["CloudExperienceHost.Bridge.dispatchMessage"](JSON.stringify({{"type": "callback", "value": {{ "name": "CloudExperienceHost.getContext", "args": ["CloudExperienceHost", "TokenBroker", "TokenBroker", "{{\"PrivatePropertyBag\":1,\"PasswordlessConnect\":1,\"PreferAssociate\":1,\"ChromelessUI\":0}}"], "context": "{ctx}"}}}}))"#));
-                    }
+                if state.active_session == Some(session_id)
+                    && let Some(webview) = state.active_webview.as_ref()
+                {
+                    let _ = webview.evaluate_script(&format!(r#"window["CloudExperienceHost.Bridge.dispatchMessage"](JSON.stringify({{"type": "callback", "value": {{ "name": "CloudExperienceHost.getContext", "args": ["CloudExperienceHost", "TokenBroker", "TokenBroker", "{{\"PrivatePropertyBag\":1,\"PasswordlessConnect\":1,\"PreferAssociate\":1,\"ChromelessUI\":0}}"], "context": "{ctx}"}}}}))"#));  
                 }
             }
             Event::UserEvent(CustomEvent::IpcCallback(session_id, data)) => {
@@ -355,16 +352,15 @@ fn create_session<T: SessionHandler>(
                 } else {
                     match serde_json::from_str::<HostBridgeMessage>(body) {
                         Ok(message) => {
-                            if let Some(ctx) = message.get_context_invoke() {
-                                if proxy_ipc
+                            if let Some(ctx) = message.get_context_invoke()
+                                && proxy_ipc
                                     .send_event(CustomEvent::HostGetContext(
                                         session_id,
                                         ctx.to_string(),
                                     ))
                                     .is_err()
-                                {
-                                    eprintln!("Failed to dispatch host context event");
-                                }
+                            {
+                                eprintln!("Failed to dispatch host context event");
                             }
                         }
                         Err(_) => {

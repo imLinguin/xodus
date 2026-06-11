@@ -23,7 +23,7 @@
 
 use std::{
     collections::HashMap,
-    io::{BufRead, BufReader, Read},
+    io::{BufRead, Read},
 };
 
 use aes::cipher::{BlockCipherDecrypt, KeyInit};
@@ -299,7 +299,7 @@ pub fn derive_device_key(license: &[u8]) -> Vec<u8> {
     let mut data = aes::cipher::Array::from(devicekey);
     aes.decrypt_block(&mut data);
 
-    return data.to_vec();
+    data.to_vec()
 }
 
 pub fn parse_license(splicense_block: String) -> SPLicense {

@@ -78,7 +78,7 @@ pub async fn ensure_device_credentials(client: &reqwest::Client) {
 pub fn get_dev_license() -> Result<xodus::models::secrets::Device, Box<dyn std::error::Error>> {
     let device_entry = xodus::secrets::get_entry("dev_license")?;
     let secret = device_entry.get_secret()?;
-    let dev = serde_json::from_slice::<xodus::models::secrets::Device>(&secret.as_slice())?;
+    let dev = serde_json::from_slice::<xodus::models::secrets::Device>(secret.as_slice())?;
     Ok(dev)
 }
 

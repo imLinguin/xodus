@@ -21,7 +21,7 @@ pub fn get_license_challange(smbios: [u8; 256], disk_serial: [u8; 64]) -> ([u8; 
     clep_obfuscate(&mut obfuscatedv2);
     clep_obfuscate(&mut obfuscatedv4);
 
-    return (obfuscatedv2, obfuscatedv4);
+    (obfuscatedv2, obfuscatedv4)
 }
 
 struct Cipher {

@@ -11,7 +11,7 @@ pub fn save_user(user: User) {
 pub fn get_user() -> Result<xodus::models::secrets::User, Box<dyn std::error::Error>> {
     let device_entry = xodus::secrets::get_entry("user-DA")?;
     let secret = device_entry.get_secret()?;
-    let t = serde_json::from_slice::<xodus::models::secrets::User>(&secret.as_slice())?;
+    let t = serde_json::from_slice::<xodus::models::secrets::User>(secret.as_slice())?;
     Ok(t)
 }
 

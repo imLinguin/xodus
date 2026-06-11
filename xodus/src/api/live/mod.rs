@@ -21,9 +21,7 @@ pub async fn login_device_credential(
     let data = quick_xml::se::to_string(&data).unwrap();
 
     let response = client
-        .post(format!(
-            "https://login.live.com/ppsecure/deviceaddcredential.srf"
-        ))
+        .post("https://login.live.com/ppsecure/deviceaddcredential.srf")
         .header("User-Agent", "MSAWindows/55 (OS 10.0.26100.0.0 ge_release; IDK 10.0.26100.5074 ge_release; Cfg 16.000.29325.00; Test 0)")
         .header("Content-Type", "application/soap+xml")
         .header("Host", "login.live.com")
@@ -58,9 +56,7 @@ pub async fn authenticate_device(
     let xml = quick_xml::se::to_string(&envelope).unwrap();
     let xml = format!("{XML_HEADER}\n{xml}");
     let response = client
-        .post(format!(
-            "https://login.live.com/RST2.srf"
-        ))
+        .post("https://login.live.com/RST2.srf")
         .header("User-Agent", "MSAWindows/55 (OS 10.0.26100.0.0 ge_release; IDK 10.0.26100.5074 ge_release; Cfg 16.000.29325.00; Test 0)")
         .header("Content-Type", "application/soap+xml")
         .header("Host", "login.live.com")
@@ -83,10 +79,10 @@ pub async fn exchange_device_token(
     policy: Option<soap::PolicyReference>,
 ) -> reqwest::Result<soap::RequestSecurityTokenResponse> {
     let mut header = soap::Header::new();
-    header.auth_info.as_mut().map(|i| {
+    if let Some(i) = header.auth_info.as_mut() {
         i.hosting_app = hosting_app;
         i.sso_flags = "SsoRestr".to_string();
-    });
+    }
     let encrypted_data = quick_xml::de::from_str(&token).unwrap();
     header.security.encrypted_data = Some(encrypted_data);
     let nonce = utils::generate_nonce();
@@ -195,9 +191,7 @@ pub async fn exchange_device_token(
     let signed = bergshamra::sign(&ctx, std::str::from_utf8(&min_xml).unwrap()).unwrap();
 
     let response = client
-        .post(format!(
-            "https://login.live.com/RST2.srf"
-        ))
+        .post("https://login.live.com/RST2.srf")
         .header("User-Agent", "MSAWindows/55 (OS 10.0.26100.0.0 ge_release; IDK 10.0.26100.5074 ge_release; Cfg 16.000.29325.00; Test 0)")
         .header("Content-Type", "application/soap+xml")
         .header("Host", "login.live.com")
@@ -241,7 +235,7 @@ pub async fn exchange_device_token(
         (soap::BodyContent::RequestSecurityTokenResponse(res), _) => Ok(res),
         (soap::BodyContent::RequestSecurityTokenResponseCollection(mut collection), _) => {
             let token = collection.security_tokens.remove(0);
-            Ok(token.into())
+            Ok(token)
         }
         (b, _) => unimplemented!("Exchange token supports only singular token right now {b:?}"),
     }
@@ -259,13 +253,13 @@ pub async fn exchange_user_token(
     scope_policies: &[(String, Option<soap::PolicyReference>)],
 ) -> reqwest::Result<ExchangeUserTokenOutcome> {
     let mut header = soap::Header::new();
-    header.auth_info.as_mut().map(|i| {
+    if let Some(i) = header.auth_info.as_mut() {
         i.hosting_app = hosting_app;
         i.sso_flags = "SsoRestr".to_string();
         i.license_signature_key_version = None;
         i.inline_ux = inline_ux.unwrap_or("TokenBroker".to_string());
         i.inline_ft = inline_token
-    });
+    }
     header.security.username_token = Some(soap::UsernameToken::user_hint(username));
     let data: EncryptedData = quick_xml::de::from_str(&user_token).unwrap();
     header.security.encrypted_data = Some(data);
@@ -356,8 +350,7 @@ pub async fn exchange_user_token(
     let body = if multiple_policies {
         let mut security_tokens: Vec<soap::RequestSecurityToken> =
             Vec::with_capacity(scope_policies.len());
-        for i in 0..scope_policies.len() {
-            let (scope, policy) = scope_policies[i].clone();
+        for (i, (scope, policy)) in scope_policies.iter().cloned().enumerate() {
             let id_num = i + 1;
             let id = format!("RST{id_num}");
 
@@ -412,9 +405,7 @@ pub async fn exchange_user_token(
     let signed = bergshamra::sign(&ctx, std::str::from_utf8(&min_xml).unwrap()).unwrap();
 
     let response = client
-        .post(format!(
-            "https://login.live.com/RST2.srf"
-        ))
+        .post("https://login.live.com/RST2.srf")
         .header("User-Agent", "MSAWindows/55 (OS 10.0.26100.0.0 ge_release; IDK 10.0.26100.5074 ge_release; Cfg 16.000.29325.00; Test 0)")
         .header("Content-Type", "application/soap+xml")
         .header("Host", "login.live.com")

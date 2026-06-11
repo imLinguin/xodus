@@ -115,13 +115,13 @@ impl webview::SessionHandler for LoginHandler {
 
         match exchanged {
             ExchangeUserTokenOutcome::Fault(pp) => {
-                if let Some(pp) = pp {
-                    if let Some(auth_url) = pp.inline_auth_url {
-                        runtime.close_session(session_id);
-                        self.finish = true;
-                        runtime.open_session(webview::finalize_request(auth_url));
-                        return Ok(webview::HandlerControl::Continue);
-                    }
+                if let Some(pp) = pp
+                    && let Some(auth_url) = pp.inline_auth_url
+                {
+                    runtime.close_session(session_id);
+                    self.finish = true;
+                    runtime.open_session(webview::finalize_request(auth_url));
+                    return Ok(webview::HandlerControl::Continue);
                 }
 
                 println!("User token exchange returned a fault without inline auth");
