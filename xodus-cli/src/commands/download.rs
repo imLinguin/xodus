@@ -52,7 +52,12 @@ pub async fn run(client: &reqwest::Client, product: String, market: Option<Strin
         return;
     };
 
-    let content_id = &package.content_id;
+    let Some(content_id) =  &package.content_id else {
+        log::error!(
+            "ContentId not found, if you believe this is an error, please report it"
+        );
+        return;
+    };
 
     let dev_token = device::get_device_token().unwrap();
     let Token::Legacy(dev_token) = dev_token else {
