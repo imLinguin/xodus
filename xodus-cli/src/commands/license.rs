@@ -104,8 +104,8 @@ pub async fn run(client: &reqwest::Client, content_id: String, market: String, c
             .await
             .unwrap();
         let uuid_buf = uuid.to_bytes_le();
-        file.write(&uuid_buf).await.unwrap();
-        file.write(&unpacked).await.unwrap();
+        file.write_all(&uuid_buf).await.unwrap();
+        file.write_all(&unpacked).await.unwrap();
         file.flush().await.unwrap();
     }
 }
