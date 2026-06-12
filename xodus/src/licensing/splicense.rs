@@ -126,6 +126,9 @@ fn read_vec<R: Read>(mut reader: R, len: usize) -> io::Result<Vec<u8>> {
 pub enum DecodeError {
     #[error("IO error: {0}")]
     IoError(#[from] io::Error),
+
+    #[error("expected to read {expected} bytes but only {read} were read")]
+    PayloadLengthMismatch { expected: usize, read: usize },
 }
 
 impl SPLicense {
@@ -150,6 +153,9 @@ impl SPLicense {
         };
 
         let size = read_u32(&mut reader)? as usize;
+
+        // Create a new reader that limits the number of bytes that can be read to `size`
+        let mut reader = reader.take(size as u64);
 
         match block_id {
             Ok(BlockId::LicenseId) => {
@@ -245,6 +251,14 @@ impl SPLicense {
             _ => {
                 let _unknown = read_vec(&mut reader, size)?;
             }
+        }
+
+        // Ensure the number of bytes read is exactly `size`
+        if reader.limit() != 0 {
+            return Err(DecodeError::PayloadLengthMismatch {
+                expected: size,
+                read: size - reader.limit() as usize,
+            });
         }
 
         Ok(Some(()))
