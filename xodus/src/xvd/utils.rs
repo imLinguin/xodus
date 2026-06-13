@@ -1,24 +1,36 @@
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
 
 use ntfs::{Ntfs, NtfsFile, NtfsReadSeek};
 use tokio::{
-    fs::{OpenOptions},
-    io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt},
+    fs::OpenOptions,
+    io::{AsyncReadExt, AsyncSeekExt},
 };
 use zerocopy::transmute;
 
-use crate::{models::xvd::{
-    XvcInfo, XvcRegionHeader, XvcRegionSpecifier, XvdHeader, XvdUpdateSegment,
-}, xvd::math::page_number_to_offset};
+use crate::xvd::crypt::SectionReader;
+use crate::xvd::math::{
+    bytes_to_pages, calculate_hash_block_num_for_block_num, offset_to_page_number,
+};
+use crate::{
+    models::xvd::{XvcInfo, XvcRegionHeader, XvcRegionSpecifier, XvdHeader, XvdUpdateSegment},
+    xvd::math::page_number_to_offset,
+};
 
-trait AsyncReadSeek: AsyncRead + AsyncSeek {}
+#[derive(Debug)]
+struct XvdEncryptionInfo {
+    full_key: [u8; 32],
+    encrypted_sections: Vec<EncryptedSectionInfo>,
+}
 
 #[derive(Debug)]
 struct XvdStream {
     file: std::fs::File,
     offset: u64,
     end_offset: u64,
+
+    encryption_info: Option<XvdEncryptionInfo>,
 }
 
 impl XvdStream {
@@ -44,6 +56,36 @@ impl Read for XvdStream {
         let remaining = usize::try_from(self.len() - current)
             .map_err(|_| Error::new(ErrorKind::InvalidData, "remaining range too large"))?;
         let to_read = remaining.min(buf.len());
+
+        if let Some(encryption_info) = &self.encryption_info {
+            let mut it = encryption_info.encrypted_sections.iter();
+            while let Some(s) = it.next() {
+                if self.offset + current >= s.section_offset
+                    && self.offset + current < s.section_offset + s.section_length
+                {
+                    if s.section_offset + s.section_length < self.offset + current + to_read as u64
+                    {
+                        todo!("Reading outside of the encrypted section in one go is Unsupported");
+                    }
+                    let mut reader = SectionReader::new(
+                        &self.file,
+                        s.section_offset,
+                        s.section_length,
+                        s.header_id,
+                        s.vduid,
+                        encryption_info.full_key,
+                        s.data_units.clone(),
+                    );
+                    return reader
+                        .read_at(
+                            self.offset + current - s.section_offset,
+                            &mut buf[..to_read],
+                        )
+                        .map(|_| to_read);
+                }
+            }
+        }
+
         self.file.read(&mut buf[..to_read])
     }
 }
@@ -79,7 +121,8 @@ impl Seek for XvdStream {
             ));
         }
 
-        self.file.seek(SeekFrom::Start(self.offset + new_relative))?;
+        self.file
+            .seek(SeekFrom::Start(self.offset + new_relative))?;
         Ok(new_relative)
     }
 }
@@ -159,7 +202,32 @@ fn extract_ntfs_directory<T: Read + Seek>(
     Ok(())
 }
 
-pub async fn parse_file(path: String) -> Result<(), Box<dyn std::error::Error>> {
+pub struct XvdFile {
+    header: XvdHeader,
+
+    hash_tree_offset: u64,
+    user_data_offset: u64,
+    xvc_info_offset: u64,
+    dynamic_header_offset: u64,
+    drive_data_offset: u64,
+
+    encrypted_section_infos: Vec<EncryptedSectionInfo>,
+}
+
+#[derive(Debug)]
+pub struct EncryptedSectionInfo {
+    section_offset: u64,
+    section_length: u64,
+
+    header_id: u32,
+    vduid: [u8; 8],
+
+    // If integrity is enabled, this must contain one entry per page in the section.
+    // If integrity is disabled, use page_in_section as the data unit instead.
+    data_units: Option<Vec<u32>>,
+}
+
+pub async fn parse_file(path: String) -> Result<XvdFile, Box<dyn std::error::Error>> {
     let input_path = PathBuf::from(&path);
     let mut file = OpenOptions::new()
         .read(true)
@@ -194,7 +262,6 @@ pub async fn parse_file(path: String) -> Result<(), Box<dyn std::error::Error>> 
     println!("is_encrypted: {}", is_encrypted);
     println!("legacy_sector_size: {}", legacy_sector_size);
     println!("xvc_data_length: {}", xvc_data_length);
-
 
     let mut region_headers: Vec<XvcRegionHeader> = Vec::new();
     let mut update_segments: Vec<XvdUpdateSegment> = Vec::new();
@@ -251,24 +318,106 @@ pub async fn parse_file(path: String) -> Result<(), Box<dyn std::error::Error>> 
     }
 
     let hash_tree_offset = xvd_header.mutable_data_length() + mdu_offset;
-    let user_data_offset = if xvd_header.is_data_integrity_enabled() { page_number_to_offset(xvd_header.hash_tree_info().1) } else { 0 } + hash_tree_offset;
-    let xvc_info_offset = page_number_to_offset(xvd_header.user_data_page_count()) + user_data_offset;
-    let dynamic_header_offset = page_number_to_offset(xvd_header.xvc_data_page_count()) + xvc_info_offset;
-    let drive_data_offset = page_number_to_offset(xvd_header.dynamic_header_page_count()) + dynamic_header_offset;
+    let user_data_offset = if xvd_header.is_data_integrity_enabled() {
+        page_number_to_offset(xvd_header.hash_tree_info().1)
+    } else {
+        0
+    } + hash_tree_offset;
+    let xvc_info_offset =
+        page_number_to_offset(xvd_header.user_data_page_count()) + user_data_offset;
+    let dynamic_header_offset =
+        page_number_to_offset(xvd_header.xvc_data_page_count()) + xvc_info_offset;
+    let drive_data_offset =
+        page_number_to_offset(xvd_header.dynamic_header_page_count()) + dynamic_header_offset;
     let _dynamic_base_offset = xvc_info_offset;
-    let _static_data_length = if xvd_header.xvd_type == 0 { 0 } else { panic!("Unsupported XvdType, TODO support Dynamic") };
+    let _static_data_length = if xvd_header.xvd_type == 0 {
+        0
+    } else {
+        panic!("Unsupported XvdType, TODO support Dynamic")
+    };
 
-    println!("drive_data_offset = {drive_data_offset:#x}");
-    let mut sfile = std::fs::File::open(path).unwrap();
-    sfile.seek(SeekFrom::Start(drive_data_offset)).unwrap();
+    let sfile = std::fs::File::open(path).unwrap();
+    let mut enc_sections: Vec<EncryptedSectionInfo> = vec![];
+    let mut it = region_headers.iter();
+    while let Some(h) = it.next() {
+        // let ch = h.clone();
+        let key_id = h.key_id;
+        let offset = h.offset;
+        let length = h.length;
+        println!(
+            "key_id {} ({} + {} = {})",
+            key_id,
+            offset,
+            length,
+            offset + length
+        );
 
+        if h.key_id != 0 {
+            continue;
+        }
+
+        let mut data_units: Vec<u32> = vec![];
+        let start_page = offset_to_page_number(h.offset - user_data_offset);
+        let num_pages = bytes_to_pages(length);
+        for page in 0..num_pages {
+            let mut buf = [0u8; 4];
+            let (hash_block, entry_num) = calculate_hash_block_num_for_block_num(
+                xvd_header.xvd_type,
+                _hash_tree_levels,
+                xvd_header.number_of_hashed_pages(),
+                start_page + page,
+                0,
+                false,
+                false,
+            );
+            let read_offset =
+                hash_tree_offset + page_number_to_offset(hash_block) + (entry_num * 0x18) + 0x14;
+            sfile.read_exact_at(&mut buf, read_offset).unwrap();
+            let u = u32::from_le_bytes(buf);
+            data_units.push(u);
+        }
+
+        enc_sections.push(EncryptedSectionInfo {
+            section_offset: h.offset,
+            section_length: h.length,
+            header_id: h.region_id,
+            vduid: xvd_header.vduid[..8].try_into().unwrap(),
+            data_units: Some(data_units.clone()),
+        });
+    }
+    Ok(XvdFile {
+        header: xvd_header,
+        hash_tree_offset,
+        user_data_offset,
+        xvc_info_offset,
+        dynamic_header_offset,
+        drive_data_offset,
+        encrypted_section_infos: enc_sections,
+    })
+}
+
+pub fn unpack_file(
+    xvd: XvdFile,
+    path: String,
+    destination: String,
+    full_key: [u8; 32],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut sfile = std::fs::File::open(path)?;
+    let block_size = 4096; //xvd.header.block_size;
     let gp = gpt::GptConfig::new()
         .writable(false)
-        .logical_block_size(gpt::disk::LogicalBlockSize::Lb4096)
+        .logical_block_size(if block_size == 512 {
+            gpt::disk::LogicalBlockSize::Lb512
+        } else if block_size == 4096 {
+            gpt::disk::LogicalBlockSize::Lb4096
+        } else {
+            todo!("unsupported block_size: {}", block_size)
+        })
         .open_from_device(XvdStream {
             file: sfile.try_clone().unwrap(),
-            offset: drive_data_offset,
-            end_offset: drive_data_offset + xvd_header.drive_size,
+            offset: xvd.drive_data_offset,
+            end_offset: xvd.drive_data_offset + xvd.header.drive_size,
+            encryption_info: None,
         })
         .unwrap();
 
@@ -282,9 +431,7 @@ pub async fn parse_file(path: String) -> Result<(), Box<dyn std::error::Error>> 
         let part_len = part.bytes_len(*gp.logical_block_size()).unwrap();
         println!(
             "#{index}: '{}' start={} len={}",
-            part.name,
-            part_start,
-            part_len,
+            part.name, part_start, part_len,
         );
 
         if ntfs_partition.is_none() {
@@ -292,61 +439,27 @@ pub async fn parse_file(path: String) -> Result<(), Box<dyn std::error::Error>> 
         }
     }
 
-    let (index, part_name, part_start, part_len) =
-        ntfs_partition.expect("no used GPT partition found");
-    let partition_offset = drive_data_offset + part_start;
-
-    println!("probing partition #{index} '{part_name}' at {partition_offset:#x}");
-    sfile.seek(SeekFrom::Start(partition_offset)).unwrap();
-    let mut boot = [0u8; 512];
-    sfile.read_exact(&mut boot).unwrap();
-    println!("boot oem = {:?}", String::from_utf8_lossy(&boot[3..11]));
-    println!(
-        "boot bytes/sector = {}",
-        u16::from_le_bytes([boot[11], boot[12]])
-    );
-    println!("boot sectors/cluster = {}", boot[13]);
-    println!("boot sig = {:02x}{:02x}", boot[510], boot[511]);
+    let (_, _, part_start, part_len) = ntfs_partition.expect("no used GPT partition found");
+    let partition_offset = xvd.drive_data_offset + part_start;
 
     let mut fs = XvdStream {
         file: sfile.try_clone().unwrap(),
         offset: partition_offset,
         end_offset: partition_offset + part_len,
+        encryption_info: Some(XvdEncryptionInfo {
+            full_key,
+            encrypted_sections: xvd.encrypted_section_infos,
+        }),
     };
     fs.seek(SeekFrom::Start(0)).unwrap();
     let mut ntfs = Ntfs::new(&mut fs).unwrap();
-    
+
     ntfs.read_upcase_table(&mut fs).unwrap();
 
     let root = ntfs.root_directory(&mut fs).unwrap();
-    let index = root.directory_index(&mut fs).unwrap();
-    let mut entries = index.entries();
-
-    while let Some(entry) = entries.next(&mut fs) {
-        let entry = entry.unwrap();
-        let Some(file_name) = entry.key() else {
-            continue;
-        };
-        let file_name = file_name.unwrap();
-        let name = file_name.name().to_string().unwrap();
-        println!("{name}");
-
-        // if name == "data" && file_name.is_directory() {
-        //     data_directory = Some(entry.to_file(&ntfs, &mut fs).unwrap());
-        // }
-    }
-
-    let package_name = input_path
-        .file_stem()
-        .and_then(|name| name.to_str())
-        .unwrap_or("xvd");
-    let extract_root = PathBuf::from("target")
-        .join("xvd-extract")
-        .join(package_name)
-        .join("data");
+    let extract_root = PathBuf::from(destination);
     println!("extracting data directory to {}", extract_root.display());
     extract_ntfs_directory(&ntfs, &mut fs, &root, &extract_root)?;
-
     Ok(())
 }
 
