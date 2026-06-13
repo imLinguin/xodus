@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 mod commands;
 mod device;
 mod user;
+mod license;
 mod webview;
 use xodus::xal::client_params::CLIENT_WINDOWS;
 
